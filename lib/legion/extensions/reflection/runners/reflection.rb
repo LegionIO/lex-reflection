@@ -18,6 +18,23 @@ module Legion
 
             update_category_scores(tick_results)
 
+            if Helpers::LlmEnhancer.available? && new_reflections.any?
+              health_scores = Helpers::Constants::CATEGORIES.to_h { |c| [c, reflection_store.category_score(c)] }
+              llm_result = Helpers::LlmEnhancer.enhance_reflection(
+                monitors_data: new_reflections,
+                health_scores: health_scores
+              )
+              if llm_result
+                new_reflections.each do |entry|
+                  enhanced = llm_result[:observations][entry[:category]]
+                  next unless enhanced
+
+                  entry[:observation] = enhanced
+                  entry[:source]      = :llm
+                end
+              end
+            end
+
             Legion::Logging.debug "[reflection] generated #{new_reflections.size} reflections, health=#{reflection_store.cognitive_health}"
 
             {
@@ -26,6 +43,24 @@ module Legion
               new_reflections:       new_reflections.map { |r| format_reflection(r) },
               total_reflections:     reflection_store.count
             }
+          end
+
+          def reflect_on_dream(dream_results: {}, **)
+            source     = :mechanical
+            reflection = nil
+
+            if Helpers::LlmEnhancer.available?
+              llm_result = Helpers::LlmEnhancer.reflect_on_dream(dream_results: dream_results)
+              if llm_result&.fetch(:reflection, nil)
+                reflection = llm_result[:reflection]
+                source     = :llm
+              end
+            end
+
+            reflection ||= build_mechanical_dream_reflection(dream_results)
+
+            Legion::Logging.debug "[reflection] dream reflection generated source=#{source}"
+            { reflection: reflection, source: source }
           end
 
           def cognitive_health(**)
@@ -73,6 +108,22 @@ module Legion
           end
 
           private
+
+          def build_mechanical_dream_reflection(dream_results)
+            return 'Dream cycle completed.' unless dream_results.is_a?(Hash) && dream_results.any?
+
+            parts = []
+            if (audit = dream_results[:memory_audit]).is_a?(Hash)
+              parts << "Memory audit: #{audit[:decayed] || 0} traces decayed, #{audit[:unresolved_count] || 0} unresolved."
+            end
+            if (contra = dream_results[:contradiction_resolution]).is_a?(Hash)
+              parts << "Contradictions: #{contra[:detected] || 0} detected, #{contra[:resolved] || 0} resolved."
+            end
+            if (agenda = dream_results[:agenda_formation]).is_a?(Hash)
+              parts << "Agenda formed with #{agenda[:agenda_items] || 0} items."
+            end
+            parts.empty? ? 'Dream cycle completed.' : parts.join(' ')
+          end
 
           def reflection_store
             @reflection_store ||= Helpers::ReflectionStore.new

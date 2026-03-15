@@ -5,6 +5,7 @@ require 'legion/extensions/reflection/helpers/constants'
 require 'legion/extensions/reflection/helpers/reflection'
 require 'legion/extensions/reflection/helpers/reflection_store'
 require 'legion/extensions/reflection/helpers/monitors'
+require 'legion/extensions/reflection/helpers/llm_enhancer'
 require 'legion/extensions/reflection/runners/reflection'
 require 'legion/extensions/reflection/client'
 
