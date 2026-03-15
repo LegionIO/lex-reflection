@@ -59,6 +59,20 @@ client.reflection_stats
 
 `:trivial` < `:notable` < `:significant` < `:critical`
 
+## LLM Enhancement
+
+When `legion-llm` is loaded and started, `Helpers::LlmEnhancer` enriches reflection output with analytically generated prose.
+
+**Methods**:
+
+`LlmEnhancer.enhance_reflection(monitors_data:, health_scores:)` — takes the raw monitors data array and per-category health score hash produced by `Helpers::Monitors`, and returns `{ observations: { category_sym => "text", ... } }`. The runner replaces the `observation` string on each reflection entry with the LLM-generated text. All category, severity, and recommendation symbols are left untouched — only the human-readable observation string changes.
+
+`LlmEnhancer.reflect_on_dream(dream_results:)` — takes the phase result hash from a completed dream cycle and returns `{ reflection: "..." }` containing a 2-4 sentence first-person, present-tense reflection on what emerged. Used by the `reflect_on_dream` runner method, which is called from `lex-dream`'s `dream_reflection` phase (phase 7). Returns `source: :llm` or `source: :mechanical` in the runner result.
+
+**Availability gate**: `LlmEnhancer.available?` checks `Legion::LLM.started?`. Returns `false` if `legion-llm` is not loaded, not configured, or raises any error.
+
+**Fallback**: When LLM is unavailable or either method returns `nil`, `reflect` uses the template observation strings from `Helpers::Monitors`, and `reflect_on_dream` uses `build_mechanical_dream_reflection` (assembles a sentence from memory audit, contradiction, and agenda counts).
+
 ## Development
 
 ```bash
